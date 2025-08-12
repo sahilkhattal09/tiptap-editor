@@ -1,21 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Bold,
-  Italic,
-  Underline as UnderlineIcon,
-  AlignLeft,
-  AlignCenter,
-  AlignRight,
-  Columns,
-  Save,
-  Search as SearchIcon,
-  ZoomIn,
-  ZoomOut,
-} from "lucide-react";
+import { useEffect, useState } from "react";
+import { Save } from "lucide-react";
 import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TextAlign from "@tiptap/extension-text-align";
@@ -24,22 +10,7 @@ import Footer from "./Footer";
 import RightPanel from "./RightPanel";
 import TextToolbar from "./TextToolbar";
 import PageToolbar from "../PageToolbar";
-
-/**
- * EditorPage (single-file)
- *
- * - Page / Text toggle (top-right) with separate toolbars
- * - Page view: paginated pages with header/footer, ruler, zoom
- * - Text view: regular editing canvas (A4 width)
- * - Scaled thumbnails: real page HTML rendered and scaled-down
- * - Manual page breaks via HR insertion
- *
- * Notes:
- * - This is a prototype for the assignment. For production you'd:
- *    • Use more robust node splitting for tables/images
- *    • Virtualize pages for large docs
- *    • Use Tiptap extensions for fonts/sizes (or custom attributes) rather than global CSS
- */
+import { usePagination } from "../../hooks/usePagination";
 
 export default function EditorPage({
   title = "Document Title",
@@ -49,31 +20,33 @@ export default function EditorPage({
   const [mounted, setMounted] = useState(false);
   const [chars, setChars] = useState(0);
   const [isPageView, setIsPageView] = useState(true);
-  const [pagesHtml, setPagesHtml] = useState<string[]>([]);
   const [currentPage, setCurrentPage] = useState(1);
   const [activeTab, setActiveTab] = useState<"thumbnail" | "index" | "search">(
     "thumbnail"
   );
-  const [headings, setHeadings] = useState<{ text: string; page: number }[]>(
-    []
-  );
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<number[]>([]);
-  const measureRef = useRef<HTMLDivElement | null>(null);
-  const buildTimer = useRef<number | null>(null);
 
-  // visual controls
-  const [zoomPercent, setZoomPercent] = useState(100); // 100% default
+  // Visual controls
+  const [zoomPercent, setZoomPercent] = useState(100);
   const [fontFamily, setFontFamily] = useState(
     "Avenir Next, system-ui, -apple-system, 'Segoe UI', Roboto"
   );
-  const [fontSize, setFontSize] = useState(12); // px
+  const [fontSize, setFontSize] = useState(12);
   const [rulerEnabled, setRulerEnabled] = useState(true);
+
+  // Pagination hook
+  const { pagesHtml, headings, measureRef, buildPages } = usePagination(
+    title,
+    currentPage,
+    setCurrentPage
+  );
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
+  // Tiptap editor instance
   const editor = useEditor({
     extensions: [
       StarterKit.configure({ heading: { levels: [1, 2, 3] } }),
@@ -89,169 +62,28 @@ export default function EditorPage({
     immediatelyRender: false,
     onUpdate: ({ editor }) => {
       setChars(editor.getText().length);
-      debouncedBuild(editor.getHTML());
+      buildPages(editor.getHTML());
     },
     editorProps: {
-      attributes: { class: "outline-none w-full h-full" },
+      attributes: { className: "outline-none w-full h-full" },
     },
   });
-
-  // Debounce rebuild
-  const debouncedBuild = (html: string) => {
-    if (buildTimer.current) window.clearTimeout(buildTimer.current);
-    buildTimer.current = window.setTimeout(() => buildPagesFromHtml(html), 200);
-  };
 
   const insertPageBreak = () => {
     if (!editor) return;
     editor.chain().focus().setHorizontalRule().run();
-    buildPagesFromHtml(editor.getHTML());
+    buildPages(editor.getHTML());
   };
 
-  // Pagination logic (measures using hidden container)
-  const buildPagesFromHtml = (html: string) => {
-    if (!measureRef.current) {
-      setPagesHtml([html]);
-      return;
-    }
-    const measureRoot = measureRef.current;
-    measureRoot.innerHTML = "";
-
-    const createPageEl = () => {
-      const page = document.createElement("div");
-      page.className = "page measure-page";
-      const header = document.createElement("div");
-      header.className = "page-header";
-      header.textContent = title;
-      page.appendChild(header);
-      const contentWrap = document.createElement("div");
-      contentWrap.className = "page-content";
-      page.appendChild(contentWrap);
-      const footer = document.createElement("div");
-      footer.className = "page-footer";
-      footer.textContent = "Page";
-      page.appendChild(footer);
-      return { page, contentWrap };
-    };
-
-    const probe = createPageEl();
-    measureRoot.appendChild(probe.page);
-    const usableHeight = probe.contentWrap.clientHeight;
-    measureRoot.innerHTML = "";
-
-    const tmp = document.createElement("div");
-    tmp.innerHTML = html;
-    const nodes = Array.from(tmp.childNodes);
-
-    const pages: string[] = [];
-    let headingList: { text: string; page: number }[] = [];
-    let current = createPageEl();
-
-    const nodeFits = (node: Node) => {
-      const clone = node.cloneNode(true);
-      current.contentWrap.appendChild(clone);
-      const fits = current.contentWrap.scrollHeight <= usableHeight;
-      if (!fits) current.contentWrap.removeChild(clone);
-      return fits;
-    };
-
-    const splitTextNodeToFit = (textNode: Text) => {
-      const text = textNode.textContent || "";
-      let low = 0,
-        high = text.length,
-        cut = 0;
-      while (low <= high) {
-        const mid = Math.floor((low + high) / 2);
-        const prefix = document.createTextNode(text.slice(0, mid));
-        current.contentWrap.appendChild(prefix);
-        const fits = current.contentWrap.scrollHeight <= usableHeight;
-        current.contentWrap.removeChild(prefix);
-        if (fits) {
-          cut = mid;
-          low = mid + 1;
-        } else {
-          high = mid - 1;
-        }
-      }
-      const first = document.createTextNode(text.slice(0, cut || 1));
-      const rest = document.createTextNode(text.slice(cut || 1));
-      current.contentWrap.appendChild(first);
-      return rest;
-    };
-
-    for (let i = 0; i < nodes.length; i++) {
-      const node = nodes[i];
-      // Manual break (hr)
-      if (
-        node.nodeType === 1 &&
-        (node as HTMLElement).tagName.toLowerCase() === "hr"
-      ) {
-        pages.push(current.contentWrap.innerHTML);
-        current = createPageEl();
-        continue;
-      }
-
-      if (nodeFits(node)) {
-        if (
-          node.nodeType === 1 &&
-          ["h1", "h2", "h3"].includes(
-            (node as HTMLElement).tagName.toLowerCase()
-          )
-        ) {
-          headingList.push({
-            text: (node as HTMLElement).innerText,
-            page: pages.length + 1,
-          });
-        }
-        continue;
-      } else {
-        if (current.contentWrap.childNodes.length === 0) {
-          // too big for empty page
-          if (node.nodeType === 3) {
-            const rest = splitTextNodeToFit(node as Text);
-            pages.push(current.contentWrap.innerHTML);
-            current = createPageEl();
-            if (rest.textContent) current.contentWrap.appendChild(rest);
-          } else {
-            current.contentWrap.appendChild(node.cloneNode(true));
-            pages.push(current.contentWrap.innerHTML);
-            current = createPageEl();
-          }
-        } else {
-          // start new page and try again
-          pages.push(current.contentWrap.innerHTML);
-          current = createPageEl();
-          if (nodeFits(node)) continue;
-          else {
-            if (node.nodeType === 3) {
-              const rest = splitTextNodeToFit(node as Text);
-              pages.push(current.contentWrap.innerHTML);
-              current = createPageEl();
-              if (rest.textContent) current.contentWrap.appendChild(rest);
-            } else {
-              current.contentWrap.appendChild(node.cloneNode(true));
-            }
-          }
-        }
-      }
-    }
-
-    pages.push(current.contentWrap.innerHTML);
-    setPagesHtml(pages);
-    setHeadings(headingList);
-    if (currentPage > pages.length) setCurrentPage(1);
-  };
-
-  // initial build once editor ready
+  // Build pages on mount and when dependencies change
   useEffect(() => {
     if (!mounted || !editor) return;
-    buildPagesFromHtml(editor.getHTML());
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mounted, editor, fontFamily, fontSize]);
+    buildPages(editor.getHTML());
+  }, [mounted, editor, buildPages]);
 
   if (!mounted) return null;
 
-  // Helpers
+  // Search logic to find pages containing search query
   const handleSearch = () => {
     const matches: number[] = [];
     pagesHtml.forEach((p, idx) => {
@@ -261,17 +93,18 @@ export default function EditorPage({
     setSearchResults(matches);
   };
 
+  // Scroll to page by id and update current page state
   const scrollToPage = (pageNum: number) => {
     const el = document.getElementById(`page-${pageNum}`);
     if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
     setCurrentPage(pageNum);
   };
 
-  // zoom helpers
+  // Zoom control with limits
   const setZoom = (percent: number) =>
     setZoomPercent(Math.max(20, Math.min(300, percent)));
 
-  // inline styling applied to pages & editor area so font changes reflect visually
+  // Inline styles applied to pages & editor for font settings
   const pageInlineStyle: React.CSSProperties = {
     fontFamily,
     fontSize: `${fontSize}px`,
@@ -280,18 +113,15 @@ export default function EditorPage({
 
   return (
     <div className="flex h-screen font-sans text-sm bg-[#F5F6F8]">
-      {/* Left main */}
+      {/* Left main panel */}
       <div className="flex flex-col flex-1 border-r border-gray-200 bg-white">
-        {/* top title row */}
+        {/* Title bar with Save icon and toggle buttons */}
         <div className="px-4 py-3 border-b bg-white flex items-center gap-3">
           <div className="text-lg font-semibold truncate">{title}</div>
           <div className="text-xs text-green-600 ml-2 flex items-center gap-1">
             <Save size={14} /> Saved
           </div>
-
           <div className="flex-1" />
-
-          {/* Page/Text toggle (matches requirement: top right) */}
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsPageView(false)}
@@ -312,7 +142,7 @@ export default function EditorPage({
           </div>
         </div>
 
-        {/* Toolbars: swap based on mode */}
+        {/* Toolbar area */}
         {isPageView ? (
           <PageToolbar
             fontFamily={fontFamily}
@@ -341,7 +171,6 @@ export default function EditorPage({
           <div className="px-6 py-2 border-b bg-white">
             <div className="relative select-none">
               <div className="h-6 bg-gray-50 rounded relative overflow-hidden">
-                {/* numeric ticks - simple visual ruler */}
                 <div
                   style={{ display: "flex", gap: 0, fontSize: 11 }}
                   className="px-2"
@@ -368,15 +197,13 @@ export default function EditorPage({
         {/* Content area */}
         <div className="flex-1 p-6 overflow-y-auto bg-[#F5F6F8]">
           {isPageView ? (
-            // Page view container centered; scale based on zoomPercent
             <div className="flex flex-col items-center gap-6 py-4">
-              {/* transform scale centered; wrapper ensures margin outside */}
               <div
                 className="page-stack"
                 style={{
                   transform: `scale(${zoomPercent / 100})`,
                   transformOrigin: "top center",
-                  width: `${210}mm`,
+                  width: `210mm`,
                 }}
               >
                 {pagesHtml.map((pageHtml, i) => (
@@ -401,7 +228,6 @@ export default function EditorPage({
               </div>
             </div>
           ) : (
-            // Text edit view (single A4 width editable area)
             <div
               className="editor-edit-area mx-auto bg-white border border-gray-200"
               style={{
@@ -423,7 +249,7 @@ export default function EditorPage({
           )}
         </div>
 
-        {/* Footer with centered page navigation and left/right extras */}
+        {/* Footer with navigation and zoom */}
         <Footer
           chars={chars}
           fontFamily={fontFamily}
@@ -450,7 +276,7 @@ export default function EditorPage({
         searchResults={searchResults}
       />
 
-      {/* Hidden measuring container used by pagination */}
+      {/* Hidden measuring container for pagination */}
       <div
         ref={measureRef as any}
         style={{
@@ -466,7 +292,7 @@ export default function EditorPage({
         }}
       />
 
-      {/* Styles */}
+      {/* Global styles */}
       <style jsx global>{`
         .page {
           width: 210mm;
@@ -493,8 +319,6 @@ export default function EditorPage({
           align-items: center;
           justify-content: center;
         }
-
-        /* print rules - headers/footers will be part of page when printing */
         @media print {
           body {
             background: white !important;
