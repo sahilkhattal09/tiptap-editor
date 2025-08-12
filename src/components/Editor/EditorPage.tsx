@@ -20,6 +20,10 @@ import { EditorContent, useEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import TextAlign from "@tiptap/extension-text-align";
 import Underline from "@tiptap/extension-underline";
+import Footer from "./Footer";
+import RightPanel from "./RightPanel";
+import TextToolbar from "./TextToolbar";
+import PageToolbar from "../PageToolbar";
 
 /**
  * EditorPage (single-file)
@@ -310,153 +314,26 @@ export default function EditorPage({
 
         {/* Toolbars: swap based on mode */}
         {isPageView ? (
-          // Page view toolbar (document settings style)
-          <div className="flex items-center gap-2 px-3 py-2 border-b bg-white">
-            <button className="px-3 py-1 rounded hover:bg-gray-50 border">
-              Header & Footer
-            </button>
-            <button className="px-3 py-1 rounded hover:bg-gray-50 border">
-              Margins
-            </button>
-            <button
-              className="px-3 py-1 rounded hover:bg-gray-50 border"
-              onClick={() => setRulerEnabled((s) => !s)}
-            >
-              {rulerEnabled ? "Hide Ruler" : "Show Ruler"}
-            </button>
-            <button className="px-3 py-1 rounded hover:bg-gray-50 border">
-              Watermark
-            </button>
-
-            {/* visual font controls (affect page/editor via CSS) */}
-            <select
-              value={fontFamily}
-              onChange={(e) => setFontFamily(e.target.value)}
-              className="border px-2 py-1 rounded text-sm ml-4"
-            >
-              <option
-                value={
-                  "Avenir Next, system-ui, -apple-system, 'Segoe UI', Roboto"
-                }
-              >
-                Avenir Next
-              </option>
-              <option value={"Roboto, system-ui, -apple-system"}>Roboto</option>
-              <option value={"Georgia, serif"}>Georgia</option>
-            </select>
-            <select
-              value={fontSize}
-              onChange={(e) => setFontSize(parseInt(e.target.value))}
-              className="border px-2 py-1 rounded text-sm"
-            >
-              <option value={11}>11</option>
-              <option value={12}>12</option>
-              <option value={13}>13</option>
-              <option value={14}>14</option>
-              <option value={16}>16</option>
-            </select>
-
-            <div className="flex-1" />
-
-            {/* Zoom controls and character count on toolbar right for quick access */}
-            <div className="flex items-center gap-2 text-xs">
-              <button
-                onClick={() => setZoom(zoomPercent - 10)}
-                className="p-1 border rounded"
-              >
-                <ZoomOut size={14} />
-              </button>
-              <div className="px-2">{zoomPercent}%</div>
-              <button
-                onClick={() => setZoom(zoomPercent + 10)}
-                className="p-1 border rounded"
-              >
-                <ZoomIn size={14} />
-              </button>
-            </div>
-          </div>
+          <PageToolbar
+            fontFamily={fontFamily}
+            setFontFamily={setFontFamily}
+            fontSize={fontSize}
+            setFontSize={setFontSize}
+            rulerEnabled={rulerEnabled}
+            setRulerEnabled={setRulerEnabled}
+            zoomPercent={zoomPercent}
+            setZoom={setZoomPercent}
+          />
         ) : (
-          // Text view toolbar (formatting)
-          <div className="flex items-center gap-2 px-3 py-2 border-b bg-white">
-            <button
-              className="p-1 hover:bg-gray-100 rounded"
-              onClick={() => editor?.chain().focus().toggleBold().run()}
-            >
-              <Bold size={16} />
-            </button>
-            <button
-              className="p-1 hover:bg-gray-100 rounded"
-              onClick={() => editor?.chain().focus().toggleItalic().run()}
-            >
-              <Italic size={16} />
-            </button>
-            <button
-              className="p-1 hover:bg-gray-100 rounded"
-              onClick={() => editor?.chain().focus().toggleUnderline().run()}
-            >
-              <UnderlineIcon size={16} />
-            </button>
-            <button
-              className="p-1 hover:bg-gray-100 rounded"
-              onClick={() => editor?.chain().focus().setTextAlign("left").run()}
-            >
-              <AlignLeft size={16} />
-            </button>
-            <button
-              className="p-1 hover:bg-gray-100 rounded"
-              onClick={() =>
-                editor?.chain().focus().setTextAlign("center").run()
-              }
-            >
-              <AlignCenter size={16} />
-            </button>
-            <button
-              className="p-1 hover:bg-gray-100 rounded"
-              onClick={() =>
-                editor?.chain().focus().setTextAlign("right").run()
-              }
-            >
-              <AlignRight size={16} />
-            </button>
-
-            <button
-              className="ml-3 px-3 py-1 bg-gray-100 rounded text-sm"
-              onClick={insertPageBreak}
-            >
-              Insert page break
-            </button>
-
-            <select
-              value={fontFamily}
-              onChange={(e) => setFontFamily(e.target.value)}
-              className="border px-2 py-1 rounded text-sm ml-4"
-            >
-              <option
-                value={
-                  "Avenir Next, system-ui, -apple-system, 'Segoe UI', Roboto"
-                }
-              >
-                Avenir Next
-              </option>
-              <option value={"Roboto, system-ui, -apple-system"}>Roboto</option>
-              <option value={"Georgia, serif"}>Georgia</option>
-            </select>
-            <select
-              value={fontSize}
-              onChange={(e) => setFontSize(parseInt(e.target.value))}
-              className="border px-2 py-1 rounded text-sm"
-            >
-              <option value={11}>11</option>
-              <option value={12}>12</option>
-              <option value={13}>13</option>
-              <option value={14}>14</option>
-              <option value={16}>16</option>
-            </select>
-
-            <div className="flex-1" />
-
-            <div className="text-xs text-gray-600">{chars} characters</div>
-          </div>
+          <TextToolbar
+            editor={editor}
+            insertPageBreak={insertPageBreak}
+            fontFamily={fontFamily}
+            setFontFamily={setFontFamily}
+            fontSize={fontSize}
+            setFontSize={setFontSize}
+            chars={chars}
+          />
         )}
 
         {/* Ruler (page mode only) */}
@@ -547,187 +424,31 @@ export default function EditorPage({
         </div>
 
         {/* Footer with centered page navigation and left/right extras */}
-        <div className="flex items-center justify-between border-t border-gray-200 px-4 py-2 bg-white">
-          <div className="flex items-center gap-4 text-xs">
-            <div>{chars} characters</div>
-            <div className="text-gray-500">
-              Font: {fontFamily.split(",")[0]}
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <ChevronLeft
-              size={18}
-              className="cursor-pointer"
-              onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-            />
-            <div className="text-sm">
-              Page {currentPage} of {pagesHtml.length || 1}
-            </div>
-            <ChevronRight
-              size={18}
-              className="cursor-pointer"
-              onClick={() =>
-                setCurrentPage((p) => Math.min(p + 1, pagesHtml.length || 1))
-              }
-            />
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setZoom(Math.max(20, zoomPercent - 10))}
-              className="px-2 py-1 border rounded text-xs"
-            >
-              -
-            </button>
-            <div className="text-xs">{zoomPercent}%</div>
-            <button
-              onClick={() => setZoom(Math.min(300, zoomPercent + 10))}
-              className="px-2 py-1 border rounded text-xs"
-            >
-              +
-            </button>
-          </div>
-        </div>
+        <Footer
+          chars={chars}
+          fontFamily={fontFamily}
+          currentPage={currentPage}
+          totalPages={pagesHtml.length}
+          onPageChange={setCurrentPage}
+          zoomPercent={zoomPercent}
+          onZoomIn={() => setZoom(Math.min(300, zoomPercent + 10))}
+          onZoomOut={() => setZoom(Math.max(20, zoomPercent - 10))}
+        />
       </div>
 
       {/* Right panel */}
-      <div className="flex flex-col w-[280px] border-l border-gray-200 bg-white">
-        <div className="flex border-b bg-gray-50">
-          <button
-            onClick={() => setActiveTab("thumbnail")}
-            className={`px-4 py-2 ${
-              activeTab === "thumbnail"
-                ? "text-purple-700 border-b-2 border-purple-700"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            Thumbnail
-          </button>
-          <button
-            onClick={() => setActiveTab("index")}
-            className={`px-4 py-2 ${
-              activeTab === "index"
-                ? "text-purple-700 border-b-2 border-purple-700"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            Index
-          </button>
-          <button
-            onClick={() => setActiveTab("search")}
-            className={`px-4 py-2 ${
-              activeTab === "search"
-                ? "text-purple-700 border-b-2 border-purple-700"
-                : "text-gray-500 hover:text-gray-700"
-            }`}
-          >
-            Search
-          </button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto p-3 space-y-3">
-          {/* Thumbnails: scaled HTML previews */}
-          {activeTab === "thumbnail" &&
-            (pagesHtml.length ? (
-              pagesHtml.map((html, idx) => {
-                // Each thumbnail contains scaled-down copy of page using same inline styles
-                return (
-                  <div
-                    key={idx}
-                    onClick={() => scrollToPage(idx + 1)}
-                    className="border border-gray-300 rounded p-2 flex items-center gap-3 cursor-pointer hover:bg-gray-50"
-                  >
-                    <div
-                      style={{
-                        width: 72,
-                        height: 96,
-                        overflow: "hidden",
-                        borderRadius: 4,
-                        background: "#fff",
-                        boxShadow: "inset 0 0 0 1px #eee",
-                      }}
-                    >
-                      <div
-                        style={{
-                          transform: `scale(${72 / (210 * (96 / 297))})`,
-                          transformOrigin: "top left",
-                          width: "210mm",
-                          height: "297mm",
-                          boxSizing: "border-box",
-                          padding: "6px",
-                          background: "#fff",
-                        }}
-                      >
-                        {/* Use inner HTML + inline style for font/size */}
-                        <div
-                          style={{
-                            ...pageInlineStyle,
-                            width: "100%",
-                            height: "100%",
-                          }}
-                          dangerouslySetInnerHTML={{ __html: html }}
-                        />
-                      </div>
-                    </div>
-                    <div className="text-xs text-gray-700">Page {idx + 1}</div>
-                  </div>
-                );
-              })
-            ) : (
-              <div className="text-xs text-gray-500">No pages</div>
-            ))}
-
-          {activeTab === "index" &&
-            (headings.length ? (
-              headings.map((h, idx) => (
-                <div
-                  key={idx}
-                  onClick={() => scrollToPage(h.page)}
-                  className="text-xs cursor-pointer hover:underline"
-                >
-                  {h.text} — Page {h.page}
-                </div>
-              ))
-            ) : (
-              <div className="text-xs text-gray-500">No headings</div>
-            ))}
-
-          {activeTab === "search" && (
-            <div>
-              <div className="flex items-center gap-2 mb-2">
-                <input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder="Search..."
-                  className="flex-1 border px-2 py-1 text-xs rounded"
-                />
-                <button
-                  onClick={handleSearch}
-                  className="p-1 bg-gray-100 rounded"
-                >
-                  <SearchIcon size={14} />
-                </button>
-              </div>
-              <div className="space-y-1">
-                {searchResults.length ? (
-                  searchResults.map((p) => (
-                    <div
-                      key={p}
-                      onClick={() => scrollToPage(p)}
-                      className="text-xs cursor-pointer hover:underline"
-                    >
-                      Match on Page {p}
-                    </div>
-                  ))
-                ) : (
-                  <div className="text-xs text-gray-500">No matches</div>
-                )}
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
+      <RightPanel
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        pagesHtml={pagesHtml}
+        headings={headings}
+        scrollToPage={scrollToPage}
+        pageInlineStyle={pageInlineStyle}
+        searchQuery={searchQuery}
+        setSearchQuery={setSearchQuery}
+        handleSearch={handleSearch}
+        searchResults={searchResults}
+      />
 
       {/* Hidden measuring container used by pagination */}
       <div
